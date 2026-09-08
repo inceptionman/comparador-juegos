@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Comparador de Precios de Videojuegos</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/htmx/1.9.10/htmx.min.js"></script>
+    <style>
+        body { font-family: sans-serif; max-width: 600px; margin: 40px auto; }
+        input { padding: 8px; width: 70%; }
+        button { padding: 8px 16px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { text-align: left; padding: 8px; border-bottom: 1px solid #ddd; }
+        .mejor { background-color: #e6ffe6; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <h1>🎮 Comparador de Precios</h1>
+
+    <form hx-get="/buscar" hx-target="#resultado" hx-swap="innerHTML">
+        <input type="text" name="q" placeholder="Nombre del juego (ej. Elden Ring)" required>
+        <button type="submit">Buscar</button>
+    </form>
+    <div id="resultado">
+        {% if resultado %}
+            {% include 'resultado.html' %}
+        {% elif mensaje %}
+            {% include 'resultado.html' %}
+        {% endif %}
+    </div>
+</body>
+</html>
