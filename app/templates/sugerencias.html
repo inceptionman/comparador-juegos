@@ -1,0 +1,7 @@
+{% if juegos %}
+<ul class="lista-sugerencias" role="listbox">
+    {% for juego in juegos %}
+    <li role="option" data-titulo="{{ juego.title }}">{{ juego.title }}</li>
+    {% endfor %}
+</ul>
+{% endif %}

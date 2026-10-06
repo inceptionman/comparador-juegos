@@ -1,3 +1,4 @@
+import httpx
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
@@ -42,4 +43,22 @@ async def buscar(request: Request, q: str):
             "resultado": {"nombre": juego["title"], "ofertas": ofertas},
             "mensaje": None,
         }
+    )
+
+
+@app.get("/sugerencias", response_class=HTMLResponse)
+async def sugerencias(request: Request, q: str = ""):
+    """Devuelve la lista desplegable de coincidencias mientras el usuario escribe."""
+    q = q.strip()
+    juegos = []
+    if len(q) >= 2:
+        try:
+            juegos = await buscar_juego(q, limite=6)
+        except httpx.HTTPError:
+            juegos = []
+
+    return templates.TemplateResponse(
+        request=request,
+        name="sugerencias.html",
+        context={"juegos": juegos},
     )
