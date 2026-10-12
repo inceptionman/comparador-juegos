@@ -1,0 +1,14 @@
+{% if resultado %}
+    <h2>{{ resultado.nombre }}</h2>
+    <table>
+        <tr><th>Tienda</th><th>Precio</th></tr>
+        {% for oferta in resultado.ofertas %}
+        <tr class="{{ 'mejor' if loop.first else '' }}">
+            <td>{{ oferta.shop.name }}</td>
+            <td>{{ oferta.price.amount }} {{ oferta.price.currency }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+{% elif mensaje %}
+    <p>{{ mensaje }}</p>
+{% endif %}

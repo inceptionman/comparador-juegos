@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Mi Lista de Deseos - Comparador de Precios</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/htmx/1.9.10/htmx.min.js"></script>
+    <style>
+        :root {
+            --fondo: #0e0e0e;
+            --superficie: #1a1a1a;
+            --superficie-2: #242424;
+            --borde: #2f2f2f;
+            --verde: #107c10;
+            --verde-hover: #159a15;
+            --lima: #9bf00b;
+            --rojo: #c42b1c;
+            --rojo-hover: #e03e2e;
+            --texto: #ffffff;
+            --texto-suave: #a6a6a6;
+            --naranja: #e67e00;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            background: var(--fondo);
+            color: var(--texto);
+            font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+            min-height: 100vh;
+        }
+
+        header {
+            background: var(--superficie);
+            border-bottom: 1px solid var(--borde);
+            padding: 18px 24px;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        header h1 {
+            margin: 0;
+            font-size: 1.25rem;
+            font-weight: 600;
+            letter-spacing: .3px;
+        }
+        header h1 span { color: var(--lima); }
+
+        .header-actions {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .user-info {
+            font-size: 0.9rem;
+            color: var(--texto-suave);
+        }
+        .user-info strong { color: var(--lima); }
+
+        .btn {
+            padding: 10px 18px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: var(--texto);
+            background: var(--verde);
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background 0.2s;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .btn:hover { background: var(--verde-hover); }
+        .btn.secondary { background: var(--superficie-2); color: var(--texto); border: 1px solid var(--borde); }
+        .btn.secondary:hover { background: var(--borde); }
+        .btn.danger { background: var(--rojo); }
+        .btn.danger:hover { background: var(--rojo-hover); }
+        .btn.small { padding: 6px 12px; font-size: 0.8rem; }
+
+        main {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 24px 20px;
+        }
+
+        .page-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 24px;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+
+        .page-title {
+            margin: 0;
+            font-size: 1.75rem;
+            font-weight: 600;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            background: var(--superficie);
+            border: 1px solid var(--borde);
+            border-radius: 8px;
+        }
+        .empty-state h2 { margin: 0 0 12px; font-size: 1.5rem; }
+        .empty-state p { margin: 0 0 24px; color: var(--texto-suave); }
+        .empty-state .btn { margin-top: 8px; }
+
+        .wishlist-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: var(--superficie);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .wishlist-table th {
+            text-align: left;
+            padding: 14px 16px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: .6px;
+            color: var(--texto-suave);
+            background: var(--superficie-2);
+            border-bottom: 1px solid var(--borde);
+        }
+
+        .wishlist-table td {
+            padding: 16px;
+            border-bottom: 1px solid var(--borde);
+            vertical-align: middle;
+        }
+        .wishlist-table tr:last-child td { border-bottom: none; }
+        .wishlist-table tr:hover td { background: #202020; }
+
+        .game-cell {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            min-width: 280px;
+        }
+
+        .game-image {
+            width: 48px;
+            height: 68px;
+            object-fit: cover;
+            border-radius: 4px;
+            background: var(--superficie-2);
+        }
+
+        .game-info { flex: 1; min-width: 0; }
+        .game-title { font-weight: 600; font-size: 0.95rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .game-platform { font-size: 0.8rem; color: var(--texto-suave); }
+
+        .price-cell { font-variant-numeric: tabular-nums; font-weight: 500; }
+
+        .price-current { color: var(--lima); }
+        .price-unavailable { color: var(--texto-suave); font-style: italic; }
+
+        .price-target-input {
+            width: 100px;
+            padding: 8px 10px;
+            font-size: 0.9rem;
+            color: var(--texto);
+            background: var(--superficie-2);
+            border: 1px solid var(--borde);
+            border-radius: 4px;
+            text-align: right;
+        }
+        .price-target-input:focus { border-color: var(--verde-hover); outline: none; }
+
+        .target-reached-badge {
+            display: inline-block;
+            padding: 3px 10px;
+            font-size: 0.7rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: .5px;
+            color: #0e0e0e;
+            background: var(--lima);
+            border-radius: 3px;
+            margin-left: 8px;
+        }
+
+        .target-not-reached { color: var(--texto-suave); font-size: 0.8rem; }
+
+        .store-name { font-size: 0.8rem; color: var(--texto-suave); }
+
+        .actions-cell { white-space: nowrap; }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: var(--texto-suave);
+        }
+
+        .currency { font-size: 0.75rem; color: var(--texto-suave); margin-left: 4px; }
+
+        .toast {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            padding: 14px 20px;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            z-index: 1000;
+            transform: translateY(100px);
+            opacity: 0;
+            transition: transform 0.3s, opacity 0.3s;
+        }
+        .toast.show { transform: translateY(0); opacity: 1; }
+        .toast.success { background: var(--verde); color: var(--texto); }
+        .toast.error { background: var(--rojo); color: var(--texto); }
+
+        @media (max-width: 700px) {
+            .wishlist-table { display: block; overflow-x: auto; }
+            .game-cell { min-width: 200px; }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>🎮 Comparador de <span>Precios</span></h1>
+        <div class="header-actions">
+            <span class="user-info">Hola, <strong id="user-name"></strong></span>
+            <form action="/api/auth/logout" method="post" style="margin: 0;">
+                <button type="submit" class="btn secondary">Cerrar sesión</button>
+            </form>
+        </div>
+    </header>
+
+    <main>
+        <div class="page-header">
+            <h2 class="page-title">Mi Lista de Deseos</h2>
+        </div>
+
+        <div id="loading" class="loading">Cargando lista de deseos...</div>
+
+        <div id="empty-state" class="empty-state" style="display: none;">
+            <h2>Tu lista está vacía</h2>
+            <p>Busca juegos y agrégalos a tu lista para seguir sus precios</p>
+            <a href="/" class="btn">Buscar juegos</a>
+        </div>
+
+        <table id="wishlist-table" class="wishlist-table" style="display: none;">
+            <thead>
+                <tr>
+                    <th style="width: 35%;">Juego</th>
+                    <th style="width: 18%;">Precio actual</th>
+                    <th style="width: 18%;">Precio objetivo</th>
+                    <th style="width: 15%;">Estado</th>
+                    <th style="width: 14%;">Acciones</th>
+                </tr>
+            </thead>
+            <tbody id="wishlist-body"></tbody>
+        </table>
+    </main>
+
+    <div id="toast" class="toast"></div>
+
+    <script>
+        const toast = document.getElementById('toast');
+        const userNameEl = document.getElementById('user-name');
+        const loadingEl = document.getElementById('loading');
+        const emptyStateEl = document.getElementById('empty-state');
+        const tableEl = document.getElementById('wishlist-table');
+        const tbodyEl = document.getElementById('wishlist-body');
+
+        function showToast(message, type = 'success') {
+            toast.textContent = message;
+            toast.className = `toast ${type} show`;
+            setTimeout(() => toast.classList.remove('show'), 3000);
+        }
+
+        function formatPrice(price, currency) {
+            if (price === null || price === undefined) return null;
+            return new Intl.NumberFormat('es-ES', { style: 'currency', currency, minimumFractionDigits: 2 }).format(price);
+        }
+
+        function renderWishlist(items) {
+            loadingEl.style.display = 'none';
+
+            if (!items || items.length === 0) {
+                emptyStateEl.style.display = 'block';
+                tableEl.style.display = 'none';
+                return;
+            }
+
+            emptyStateEl.style.display = 'none';
+            tableEl.style.display = 'table';
+            tbodyEl.innerHTML = '';
+
+            items.forEach(item => {
+                const tr = document.createElement('tr');
+                tr.dataset.id = item.id;
+
+                const currentPrice = item.current_price;
+                const targetPrice = item.target_price;
+                const targetReached = item.target_reached;
+                const sameCurrency = item.current_price_currency === item.currency;
+
+                tr.innerHTML = `
+                    <td>
+                        <div class="game-cell">
+                            <img class="game-image" src="${item.image_url || ''}" alt="" onerror="this.style.display='none'">
+                            <div class="game-info">
+                                <div class="game-title">${item.game_title}</div>
+                                <div class="game-platform">${item.platform_name || 'Plataforma no disponible'}</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="price-cell">
+                        ${currentPrice !== null && currentPrice !== undefined
+                            ? `<span class="price-current">${formatPrice(currentPrice, item.current_price_currency)}</span>
+                               <span class="currency">${item.current_price_currency}</span>`
+                            : '<span class="price-unavailable">Precio no disponible</span>'
+                        }
+                        ${item.best_store_name ? `<div class="store-name">${item.best_store_name}</div>` : ''}
+                    </td>
+                    <td>
+                        <input type="number" step="0.01" min="0"
+                               class="price-target-input"
+                               value="${targetPrice}"
+                               data-currency="${item.currency}"
+                               aria-label="Precio objetivo">
+                        <span class="currency">${item.currency}</span>
+                    </td>
+                    <td>
+                        ${targetReached && sameCurrency
+                            ? '<span class="target-reached-badge">¡Objetivo alcanzado!</span>'
+                            : currentPrice !== null && currentPrice !== undefined && sameCurrency
+                                ? `<span class="target-not-reached">Faltan ${formatPrice(targetPrice - currentPrice, item.currency)}</span>`
+                                : '<span class="target-not-reached">--</span>'
+                        }
+                    </td>
+                    <td class="actions-cell">
+                        <button class="btn danger small delete-btn" data-id="${item.id}">Eliminar</button>
+                    </td>
+                `;
+                tbodyEl.appendChild(tr);
+            });
+
+            attachEventListeners();
+        }
+
+        function attachEventListeners() {
+            document.querySelectorAll('.price-target-input').forEach(input => {
+                input.addEventListener('change', handleTargetPriceChange);
+            });
+
+            document.querySelectorAll('.delete-btn').forEach(btn => {
+                btn.addEventListener('click', handleDelete);
+            });
+        }
+
+        async function handleTargetPriceChange(e) {
+            const input = e.target;
+            const row = input.closest('tr');
+            const itemId = row.dataset.id;
+            const newPrice = parseFloat(input.value);
+            const currency = input.dataset.currency;
+
+            if (isNaN(newPrice) || newPrice < 0) {
+                showToast('Precio inválido', 'error');
+                input.value = input.defaultValue;
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/wishlist/${itemId}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ target_price: newPrice, currency }),
+                    credentials: 'include'
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.detail || 'Error al actualizar');
+                }
+
+                showToast('Precio objetivo actualizado');
+                refreshWishlist();
+            } catch (error) {
+                showToast(error.message, 'error');
+                input.value = input.defaultValue;
+            }
+        }
+
+        async function handleDelete(e) {
+            const btn = e.target;
+            const itemId = btn.dataset.id;
+
+            if (!confirm('¿Eliminar este juego de tu lista de deseos?')) return;
+
+            try {
+                const response = await fetch(`/api/wishlist/${itemId}`, {
+                    method: 'DELETE',
+                    credentials: 'include'
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.detail || 'Error al eliminar');
+                }
+
+                showToast('Juego eliminado de la lista');
+                refreshWishlist();
+            } catch (error) {
+                showToast(error.message, 'error');
+            }
+        }
+
+        async function refreshWishlist() {
+            loadingEl.style.display = 'block';
+            emptyStateEl.style.display = 'none';
+            tableEl.style.display = 'none';
+
+            try {
+                const response = await fetch('/api/wishlist', {
+                    credentials: 'include'
+                });
+
+                if (response.status === 401) {
+                    window.location.href = '/api/auth/login';
+                    return;
+                }
+
+                if (!response.ok) throw new Error('Error al cargar lista');
+
+                const items = await response.json();
+                renderWishlist(items);
+            } catch (error) {
+                loadingEl.style.display = 'none';
+                showToast(error.message, 'error');
+            }
+        }
+
+        async function init() {
+            try {
+                const response = await fetch('/api/auth/me', { credentials: 'include' });
+                if (response.ok) {
+                    const user = await response.json();
+                    userNameEl.textContent = user.name;
+                } else {
+                    window.location.href = '/api/auth/login';
+                    return;
+                }
+            } catch {
+                window.location.href = '/api/auth/login';
+                return;
+            }
+
+            refreshWishlist();
+        }
+
+        init();
+    </script>
+</body>
+</html>
