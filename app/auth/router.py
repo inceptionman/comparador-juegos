@@ -7,18 +7,27 @@ from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.exc import IntegrityError
 
-from app.auth.service import create_access_token, decode_access_token, hash_password, verify_password
+from app.auth.service import (
+    JWT_EXPIRE_MINUTES,
+    create_access_token,
+    decode_access_token,
+    hash_password,
+    verify_password,
+)
+from app.core.config import get_settings
 from app.db.base import get_session
 from app.db.models import User
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 templates = Jinja2Templates(directory="app/templates")
 ACCESS_TOKEN_COOKIE = "access_token"
-ACCESS_TOKEN_MAX_AGE = 60 * 60 * 24 * 7
+settings = get_settings()
+ACCESS_TOKEN_MAX_AGE = JWT_EXPIRE_MINUTES * 60
 ACCESS_TOKEN_COOKIE_OPTIONS = {
     "httponly": True,
-    "secure": False,
+    "secure": settings.COOKIE_SECURE,
     "samesite": "lax",
     "path": "/",
 }
@@ -74,11 +83,12 @@ async def get_current_user(request: Request, session: AsyncSession = Depends(get
     if not payload:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
 
-    user_id = payload.get("sub")
-    if not user_id:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token payload")
+    try:
+        user_id = UUID(str(payload["sub"]))
+    except (KeyError, TypeError, ValueError):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
 
-    user = await session.get(User, UUID(user_id))
+    user = await session.get(User, user_id)
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
 
@@ -94,43 +104,53 @@ async def get_current_user_optional(request: Request, session: AsyncSession = De
     if not payload:
         return None
 
-    user_id = payload.get("sub")
-    if not user_id:
+    try:
+        user_id = UUID(str(payload["sub"]))
+    except (KeyError, TypeError, ValueError):
         return None
 
-    user = await session.get(User, UUID(user_id))
+    user = await session.get(User, user_id)
     return user
 
 
 @router.post("/register", response_model=TokenResponse)
 async def register(data: RegisterRequest, response: Response, session: AsyncSession = Depends(get_session)):
-    result = await session.execute(select(User).where(User.email == data.email))
+    email = str(data.email).strip().lower()
+    name = data.name.strip()
+    if not name:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Name cannot be empty")
+
+    result = await session.execute(select(User).where(User.email == email))
     existing = result.scalar_one_or_none()
     if existing:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Email already registered")
 
     user = User(
-        name=data.name,
-        email=data.email,
+        name=name,
+        email=email,
         password_hash=hash_password(data.password),
     )
     session.add(user)
-    await session.commit()
+    try:
+        await session.commit()
+    except IntegrityError:
+        await session.rollback()
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Email already registered")
     await session.refresh(user)
 
-    access_token = create_access_token(data={"sub": str(user.id)}, expires_delta=timedelta(minutes=60 * 24 * 7))
+    access_token = create_access_token(data={"sub": str(user.id)}, expires_delta=timedelta(minutes=JWT_EXPIRE_MINUTES))
     set_access_token_cookie(response, access_token)
     return TokenResponse(access_token=access_token)
 
 
 @router.post("/login", response_model=TokenResponse)
 async def login(data: LoginRequest, response: Response, session: AsyncSession = Depends(get_session)):
-    result = await session.execute(select(User).where(User.email == data.email))
+    result = await session.execute(select(User).where(User.email == str(data.email).strip().lower()))
     user = result.scalar_one_or_none()
     if not user or not verify_password(data.password, user.password_hash):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
 
-    access_token = create_access_token(data={"sub": str(user.id)}, expires_delta=timedelta(minutes=60 * 24 * 7))
+    access_token = create_access_token(data={"sub": str(user.id)}, expires_delta=timedelta(minutes=JWT_EXPIRE_MINUTES))
     set_access_token_cookie(response, access_token)
     return TokenResponse(access_token=access_token)
 

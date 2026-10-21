@@ -1,14 +1,53 @@
 {% if resultado %}
-    <h2>{{ resultado.nombre }}</h2>
-    <table>
-        <tr><th>Tienda</th><th>Precio</th></tr>
-        {% for oferta in resultado.ofertas %}
-        <tr class="{{ 'mejor' if loop.first else '' }}">
-            <td>{{ oferta.shop.name }}</td>
-            <td>{{ oferta.price.amount }} {{ oferta.price.currency }}</td>
-        </tr>
-        {% endfor %}
+    <div class="search-game-heading">
+        <div class="search-game-cover" aria-hidden="true">
+            <span>{{ resultado.nombre[:1] }}</span>
+            {% if resultado.image_url %}
+            <img src="{{ resultado.image_url }}" alt="Portada de {{ resultado.nombre }}" loading="lazy" onerror="this.hidden=true">
+            {% endif %}
+        </div>
+        <div>
+            <p class="search-kicker">Resultado de búsqueda</p>
+            <h2 class="titulo-juego">{{ resultado.nombre }}</h2>
+        </div>
+    </div>
+    {% if resultado.ofertas %}
+    <table class="tabla-ofertas">
+        <thead>
+            <tr><th>Tienda</th><th>Precio</th><th>Enlace</th></tr>
+        </thead>
+        <tbody>
+            {% for oferta in resultado.ofertas %}
+            <tr class="{{ 'mejor' if loop.first else '' }}">
+                <td>
+                    {{ (oferta.shop.name if oferta.shop else 'Tienda no disponible') }}
+                    {% if loop.first %}<span class="insignia">Mejor precio</span>{% endif %}
+                </td>
+                <td class="precio">{{ oferta.price.amount }} {{ oferta.price.currency }}</td>
+                <td>
+                    {% if oferta.url %}<a href="{{ oferta.url }}" target="_blank" rel="noopener noreferrer">Ver oferta</a>{% else %}No disponible{% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
     </table>
+    {% else %}
+    <p class="mensaje">No hay ofertas disponibles para este juego en este momento.</p>
+    {% endif %}
+
+    {% if resultado.game_id %}
+    <div class="wishlist-form" data-wishlist-form style="margin-top: 20px; display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
+        <label for="search-target-price">Precio objetivo</label>
+        <input id="search-target-price" data-target-price type="number" min="0" step="0.01" value="0" style="max-width: 130px; padding: 8px;">
+        <select id="search-target-currency" data-target-currency style="padding: 8px;">
+            <option value="USD">USD</option>
+            <option value="COP">COP</option>
+            <option value="EUR">EUR</option>
+        </select>
+        <button type="button" data-search-wishlist data-game-id="{{ resultado.game_id }}">Guardar en mi lista</button>
+        <span class="mensaje" data-wishlist-message role="status"></span>
+    </div>
+    {% endif %}
 {% elif mensaje %}
-    <p>{{ mensaje }}</p>
+    <p class="mensaje">{{ mensaje }}</p>
 {% endif %}

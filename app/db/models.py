@@ -44,6 +44,7 @@ class Game(Base, TimestampMixin):
     title: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
     slug: Mapped[str] = mapped_column(String(255), unique=True, nullable=False, index=True)
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    image_url: Mapped[Optional[str]] = mapped_column(String(1000), nullable=True)
     release_date: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     external_id: Mapped[Optional[str]] = mapped_column(String(100), unique=True, nullable=True, index=True)
 
@@ -273,5 +274,4 @@ class WishlistItem(Base, TimestampMixin):
 
     __table_args__ = (
         UniqueConstraint("user_id", "game_id", name="uq_user_game_wishlist"),
-        Index("ix_wishlist_items_user_id", "user_id"),
     )

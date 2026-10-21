@@ -10,7 +10,7 @@ from app.db.models import Game, Platform, Store, GameOffer, PriceHistory, Search
 
 
 @pytest_asyncio.fixture
-async def engine(event_loop):
+async def engine():
     db_name = f"test_{uuid.uuid4().hex}.db"
     db_url = f"sqlite+aiosqlite:///{db_name}"
     

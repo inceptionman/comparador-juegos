@@ -1,11 +1,12 @@
 from datetime import datetime, timezone
 from decimal import Decimal
+import re
 from typing import Sequence
 from uuid import UUID, uuid4
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.models import Game, Platform, Store, GameOffer, PriceHistory
+from app.db.models import Game, GamePlatform, Platform, Store, GameOffer, PriceHistory
 from app.repositories import (
     GameRepository,
     PlatformRepository,
@@ -33,6 +34,7 @@ class PersistenceService:
         description: str | None = None,
         release_date: datetime | None = None,
         external_id: str | None = None,
+        image_url: str | None = None,
     ) -> Game:
         if external_id:
             existing = await self.games.get_by_external_id(external_id)
@@ -50,8 +52,77 @@ class PersistenceService:
             description=description,
             release_date=release_date,
             external_id=external_id,
+            image_url=image_url,
         )
         return await self.games.create(game)
+
+    async def sync_external_game(self, game_data: dict, price_data: list[dict] | None = None) -> Game:
+        """Persist a normalized ITAD result so it can be used by the wishlist."""
+        external_id = str(game_data.get("id", "")).strip()
+        title = str(game_data.get("title", "")).strip()
+        if not external_id or not title:
+            raise ValueError("External game data must include id and title")
+
+        raw_slug = game_data.get("slug") or title
+        slug = re.sub(r"[^a-z0-9]+", "-", str(raw_slug).lower()).strip("-") or external_id
+        game = await self.create_or_get_game(
+            title=title,
+            slug=slug[:255],
+            external_id=external_id,
+            image_url=game_data.get("image_url") or game_data.get("image"),
+        )
+        if game.image_url is None and (game_data.get("image_url") or game_data.get("image")):
+            game.image_url = game_data.get("image_url") or game_data.get("image")
+            await self.games.update(game)
+
+        deals = price_data or []
+        for deal in deals:
+            price = deal.get("price") or {}
+            amount = price.get("amount")
+            currency = str(price.get("currency") or "USD").upper()
+            if amount is None:
+                continue
+            shop = deal.get("shop") or deal.get("store") or {}
+            store_name = str(shop.get("name") or "Tienda desconocida").strip()
+            store_slug = re.sub(r"[^a-z0-9]+", "-", store_name.lower()).strip("-") or "store"
+            store = await self.create_or_get_store(store_name, store_slug[:100])
+
+            raw_platforms = deal.get("platforms") or deal.get("platform") or ["PC"]
+            if isinstance(raw_platforms, (str, dict)):
+                raw_platforms = [raw_platforms]
+            raw_platform = next(iter(raw_platforms), "PC")
+            if isinstance(raw_platform, dict):
+                platform_name = str(
+                    raw_platform.get("name")
+                    or raw_platform.get("title")
+                    or raw_platform.get("slug")
+                    or "PC"
+                ).strip()
+            else:
+                platform_name = str(raw_platform).strip() or "PC"
+            platform_slug = re.sub(r"[^a-z0-9]+", "-", platform_name.lower()).strip("-") or "pc"
+            platform = await self.create_or_get_platform(platform_name, platform_slug[:100])
+
+            association = await self.session.get(GamePlatform, (game.id, platform.id))
+            if association is None:
+                self.session.add(GamePlatform(game_id=game.id, platform_id=platform.id))
+                await self.session.flush()
+
+            regular = (deal.get("regular") or {}).get("amount")
+            await self.upsert_offer(
+                game_id=game.id,
+                store_id=store.id,
+                platform_id=platform.id,
+                external_id=str(deal.get("id")) if deal.get("id") is not None else None,
+                product_url=deal.get("url") or deal.get("product_url"),
+                currency=currency[:3],
+                current_price=Decimal(str(amount)),
+                regular_price=Decimal(str(regular)) if regular is not None else None,
+                is_available=True,
+            )
+
+        await self.session.commit()
+        return game
 
     async def create_or_get_platform(self, name: str, slug: str) -> Platform:
         existing = await self.platforms.get_by_slug(slug)

@@ -7,21 +7,49 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/htmx/1.9.10/htmx.min.js"></script>
     <style>
         :root {
-            --fondo: #0e0e0e;
-            --superficie: #1a1a1a;
-            --superficie-2: #242424;
-            --borde: #2f2f2f;
-            --verde: #107c10;
-            --verde-hover: #159a15;
-            --lima: #9bf00b;
-            --rojo: #c42b1c;
-            --rojo-hover: #e03e2e;
-            --texto: #ffffff;
-            --texto-suave: #a6a6a6;
-            --naranja: #e67e00;
+            --fondo: #1b1110;
+            --superficie: #33201b;
+            --superficie-2: #422820;
+            --borde: rgba(255, 220, 200, .16);
+            --verde: #ff8a4c;
+            --verde-hover: #ffad68;
+            --lima: #ffb05c;
+            --rojo: #ff6b6b;
+            --rojo-hover: #ff8787;
+            --texto: #fff4eb;
+            --texto-suave: #c3a79b;
+            --naranja: #ff8a65;
+            --header-glow: rgba(255, 176, 92, .16);
+            --focus-ring: rgba(255, 176, 92, .72);
+            --button-text: #3b201a;
+            --image-bg: linear-gradient(145deg, #5a3026, #38221f);
+        }
+
+        html[data-theme="day"] {
+            --fondo: #fff7ed;
+            --superficie: #fffaf5;
+            --superficie-2: #fff0e4;
+            --borde: rgba(104, 55, 37, .18);
+            --verde: #e56835;
+            --verde-hover: #ef7d47;
+            --lima: #d85b2b;
+            --rojo: #b9364a;
+            --rojo-hover: #cc4b5c;
+            --texto: #3b201a;
+            --texto-suave: #8d6a5b;
+            --naranja: #b84d62;
+            --header-glow: rgba(216, 91, 43, .12);
+            --focus-ring: rgba(216, 91, 43, .55);
+            --button-text: #fffaf5;
+            --image-bg: linear-gradient(145deg, #f1a36d, #d97862);
         }
 
         * { box-sizing: border-box; }
+
+        button:focus-visible, a:focus-visible, input:focus-visible {
+            outline: 3px solid var(--focus-ring);
+            outline-offset: 2px;
+        }
 
         body {
             margin: 0;
@@ -55,6 +83,8 @@
             gap: 12px;
             align-items: center;
         }
+
+        .home-link { white-space: nowrap; }
 
         .user-info {
             font-size: 0.9rem;
@@ -142,7 +172,7 @@
             vertical-align: middle;
         }
         .wishlist-table tr:last-child td { border-bottom: none; }
-        .wishlist-table tr:hover td { background: #202020; }
+        .wishlist-table tr:hover td { background: var(--superficie-2); }
 
         .game-cell {
             display: flex;
@@ -158,6 +188,23 @@
             border-radius: 4px;
             background: var(--superficie-2);
         }
+
+        .game-image-wrap {
+            position: relative;
+            width: 48px;
+            height: 68px;
+            flex: 0 0 48px;
+            display: grid;
+            place-items: center;
+            overflow: hidden;
+            border: 1px solid var(--borde);
+            border-radius: 4px;
+            background: var(--image-bg);
+            color: var(--lima);
+            font-size: 1.25rem;
+        }
+
+        .game-image-wrap img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 
         .game-info { flex: 1; min-width: 0; }
         .game-title { font-weight: 600; font-size: 0.95rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -187,7 +234,7 @@
             font-weight: 700;
             text-transform: uppercase;
             letter-spacing: .5px;
-            color: #0e0e0e;
+            color: var(--button-text);
             background: var(--lima);
             border-radius: 3px;
             margin-left: 8px;
@@ -229,12 +276,20 @@
             .game-cell { min-width: 200px; }
         }
     </style>
+    <script>
+        (() => {
+            const savedTheme = localStorage.getItem('comparador-theme');
+            if (savedTheme === 'day') document.documentElement.dataset.theme = 'day';
+        })();
+    </script>
 </head>
 <body>
     <header>
         <h1>🎮 Comparador de <span>Precios</span></h1>
         <div class="header-actions">
             <span class="user-info">Hola, <strong id="user-name"></strong></span>
+            <button id="theme-toggle" type="button" class="btn secondary" aria-label="Cambiar a modo día">☀️ Día</button>
+            <a href="/" class="btn secondary home-link">Volver al inicio</a>
             <form action="/api/auth/logout" method="post" style="margin: 0;">
                 <button type="submit" class="btn secondary">Cerrar sesión</button>
             </form>
@@ -277,6 +332,20 @@
         const emptyStateEl = document.getElementById('empty-state');
         const tableEl = document.getElementById('wishlist-table');
         const tbodyEl = document.getElementById('wishlist-body');
+        const themeToggle = document.getElementById('theme-toggle');
+
+        function applyTheme(theme) {
+            const isDay = theme === 'day';
+            document.documentElement.dataset.theme = isDay ? 'day' : 'night';
+            themeToggle.textContent = isDay ? '🌙 Noche' : '☀️ Día';
+            themeToggle.setAttribute('aria-label', isDay ? 'Cambiar a modo noche' : 'Cambiar a modo día');
+            localStorage.setItem('comparador-theme', isDay ? 'day' : 'night');
+        }
+
+        applyTheme(document.documentElement.dataset.theme === 'day' ? 'day' : 'night');
+        themeToggle.addEventListener('click', () => {
+            applyTheme(document.documentElement.dataset.theme === 'day' ? 'night' : 'day');
+        });
 
         function showToast(message, type = 'success') {
             toast.textContent = message;
@@ -314,7 +383,10 @@
                 tr.innerHTML = `
                     <td>
                         <div class="game-cell">
-                            <img class="game-image" src="${item.image_url || ''}" alt="" onerror="this.style.display='none'">
+                            <div class="game-image-wrap" aria-hidden="true">
+                                <span>🎮</span>
+                                ${item.image_url ? `<img src="${item.image_url}" alt="Portada de ${item.game_title}" loading="lazy" onerror="this.style.display='none'">` : ''}
+                            </div>
                             <div class="game-info">
                                 <div class="game-title">${item.game_title}</div>
                                 <div class="game-platform">${item.platform_name || 'Plataforma no disponible'}</div>

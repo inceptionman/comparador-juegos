@@ -1,3 +1,4 @@
+from ast import literal_eval
 from typing import List, Optional
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
@@ -10,6 +11,15 @@ from app.db.base import get_session
 from app.db.models import Game, GameOffer, Store, Platform, User, WishlistItem
 
 router = APIRouter(prefix="/api/home", tags=["home"])
+
+
+def _game_image_url(game: Game) -> Optional[str]:
+    """Return the stored cover or a stable ITAD cover fallback for legacy rows."""
+    if game.image_url:
+        return game.image_url
+    if game.external_id:
+        return f"https://assets.isthereanydeal.com/{game.external_id}/boxart.jpg"
+    return None
 
 
 class GameCardResponse(BaseModel):
@@ -41,14 +51,24 @@ def _build_game_card(offer: GameOffer, in_wishlist: bool = False) -> GameCardRes
         discount_pct = int(round((1 - float(offer.current_price) / float(offer.regular_price)) * 100))
         discount_pct = max(0, min(100, discount_pct))
 
-    platform_names = [p.name for p in offer.game.platforms] if offer.game.platforms else []
+    platform_names = []
+    for platform in offer.game.platforms or []:
+        name = platform.name
+        if isinstance(name, str) and name.startswith("{"):
+            try:
+                parsed = literal_eval(name)
+                if isinstance(parsed, dict):
+                    name = parsed.get("name") or parsed.get("title") or parsed.get("slug") or name
+            except (ValueError, SyntaxError):
+                pass
+        platform_names.append(str(name))
 
     return GameCardResponse(
         id=str(offer.game.id),
         title=offer.game.title,
         slug=offer.game.slug,
         platform=", ".join(platform_names) if platform_names else None,
-        image_url=None,
+        image_url=_game_image_url(offer.game),
         current_price=float(offer.current_price) if offer.current_price else None,
         regular_price=float(offer.regular_price) if offer.regular_price else None,
         currency=offer.currency,
@@ -75,6 +95,7 @@ async def get_featured_deals(
 
     result = await session.execute(
         select(GameOffer)
+        .join(GameOffer.game)
         .where(GameOffer.is_available == True)
         .options(
             selectinload(GameOffer.game).selectinload(Game.platforms),
@@ -223,12 +244,13 @@ async def get_new_releases(
 
     result = await session.execute(
         select(GameOffer)
+        .join(GameOffer.game)
         .where(GameOffer.is_available == True)
         .options(
             selectinload(GameOffer.game).selectinload(Game.platforms),
             selectinload(GameOffer.store),
         )
-        .order_by(GameOffer.game.has(Game.release_date.desc().nullslast()))
+        .order_by(Game.release_date.desc().nullslast(), GameOffer.last_checked_at.desc())
         .limit(limit * 3)
     )
     offers = result.scalars().all()

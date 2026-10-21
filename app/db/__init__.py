@@ -1,5 +1,15 @@
 from app.db.base import Base, async_session_maker, close_db, engine, get_session, init_db
-from app.db.models import Game, GameOffer, GamePlatform, Platform, PriceHistory, SearchCache, Store
+from app.db.models import (
+    Game,
+    GameOffer,
+    GamePlatform,
+    Platform,
+    PriceHistory,
+    SearchCache,
+    Store,
+    User,
+    WishlistItem,
+)
 
 __all__ = [
     "Base",
@@ -15,4 +25,6 @@ __all__ = [
     "GameOffer",
     "PriceHistory",
     "SearchCache",
+    "User",
+    "WishlistItem",
 ]

@@ -24,6 +24,9 @@ class Settings:
     ENVIRONMENT: str = os.getenv("ENVIRONMENT", "development")
 
     JWT_SECRET_KEY: str = os.getenv("JWT_SECRET_KEY", "dev-secret-change-in-production")
+    JWT_EXPIRE_MINUTES: int = int(os.getenv("JWT_EXPIRE_MINUTES", str(60 * 24 * 7)))
+    COOKIE_SECURE: bool = os.getenv("COOKIE_SECURE", "").lower() == "true"
+    ITAD_TIMEOUT_SECONDS: float = float(os.getenv("ITAD_TIMEOUT_SECONDS", "10"))
 
 
 @lru_cache

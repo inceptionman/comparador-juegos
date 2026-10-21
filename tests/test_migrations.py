@@ -31,7 +31,8 @@ async def test_migration_upgrade_downgrade():
             tables = inspector.get_table_names()
             expected_tables = [
                 'games', 'platforms', 'game_platforms', 'stores',
-                'game_offers', 'price_history', 'search_cache', 'alembic_version'
+                'game_offers', 'price_history', 'search_cache', 'users',
+                'wishlist_items', 'alembic_version'
             ]
             for table in expected_tables:
                 assert table in tables, f"Table {table} not found"
@@ -42,6 +43,7 @@ async def test_migration_upgrade_downgrade():
             assert 'title' in game_columns
             assert 'slug' in game_columns
             assert 'external_id' in game_columns
+            assert 'image_url' in game_columns
             
             # Check columns for game_offers
             offer_columns = [c['name'] for c in inspector.get_columns('game_offers')]

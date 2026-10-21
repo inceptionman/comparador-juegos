@@ -1,4 +1,7 @@
-{% for j in juegos %}
-<div class="sugerencia" data-titulo="{{ j.title }}"
-     onclick="elegir(this.dataset.titulo)">{{ j.title }}</div>
-{% endfor %}
+{% if juegos %}
+<ul class="lista-sugerencias">
+    {% for juego in juegos %}
+    <li data-titulo="{{ juego.title }}">{{ juego.title }}</li>
+    {% endfor %}
+</ul>
+{% endif %}

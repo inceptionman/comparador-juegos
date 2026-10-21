@@ -12,7 +12,7 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 JWT_SECRET_KEY = settings.JWT_SECRET_KEY
 JWT_ALGORITHM = "HS256"
-JWT_EXPIRE_MINUTES = 60 * 24 * 7
+JWT_EXPIRE_MINUTES = settings.JWT_EXPIRE_MINUTES
 
 
 def hash_password(password: str) -> str:
@@ -37,6 +37,8 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
 def decode_access_token(token: str) -> Optional[dict]:
     try:
         payload = jwt.decode(token, JWT_SECRET_KEY, algorithms=[JWT_ALGORITHM])
+        if not payload.get("sub"):
+            return None
         return payload
     except jwt.JWTError:
         return None
